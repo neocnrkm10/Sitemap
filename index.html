@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Voting Simulation</title>
+</head>
+<body>
+
+<h1>Live Voting Simulation</h1>
+
+<button onclick="vote('A')">Vote A</button>
+<button onclick="vote('B')">Vote B</button>
+
+<p>A: <span id="A">0</span></p>
+<p>B: <span id="B">0</span></p>
+
+<script>
+const BIN_ID = "696e3fdd43b1c97be93add1b";
+const MASTER_KEY = "$2a$10$aH9DFLtcxzgjw.rCRXnqMus1WiZ8KIvJY1AL9R0axo7PSMA9d8jTW";
+const URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+
+async function fetchVotes() {
+  const res = await fetch(URL, {
+    headers: { "X-Master-Key": MASTER_KEY }
+  });
+  const data = await res.json();
+  document.getElementById("A").innerText = data.record.A;
+  document.getElementById("B").innerText = data.record.B;
+}
+
+async function vote(candidate) {
+  const res = await fetch(URL, {
+    headers: { "X-Master-Key": MASTER_KEY }
+  });
+  const data = await res.json();
+
+  data.record[candidate]++;
+
+  await fetch(URL, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Master-Key": MASTER_KEY
+    },
+    body: JSON.stringify(data.record)
+  });
+
+  fetchVotes();
+}
+
+setInterval(fetchVotes, 2000);
+fetchVotes();
+</script>
+
+</body>
+</html>
