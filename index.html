@@ -135,16 +135,21 @@
                 <i class="fas fa-ghost text-5xl text-purple-500 z-10"></i>
             </div>
 
-            <h1 class="text-4xl font-bold text-white mb-2">ChatWith<span class="text-blue-500">CNR</span></h1>
-            <p class="text-slate-500 text-sm mb-8 font-mono">SECURE MESSAGING PROTOCOL</p>
+            <h1 class="text-4xl font-bold text-white mb-2" id="landing-title">ChatWith<span class="text-blue-500">CNR</span></h1>
+            <p class="text-slate-500 text-sm mb-6 font-mono" id="landing-subtitle">SECURE MESSAGING PROTOCOL</p>
+
+            <div class="mb-6 text-xs text-amber-500/90 bg-amber-900/20 border border-amber-500/20 p-3 rounded-lg text-center leading-relaxed">
+                <i class="fas fa-shield-halved mr-1"></i> 
+                <strong>Ephemeral Chat:</strong> History is not saved. You will NOT see messages sent before you joined.
+            </div>
 
             <div class="space-y-4 text-left">
                 <div>
                     <input type="text" id="username-input" placeholder="Choose Identity..." class="glass-input w-full px-5 py-4 rounded-xl text-lg placeholder-slate-600">
                 </div>
                 
-                <button onclick="createChat()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-900/30 transition flex items-center justify-center gap-2">
-                    <span>Create Room</span> <i class="fas fa-arrow-right text-xs"></i>
+                <button onclick="createChat()" id="action-btn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-900/30 transition flex items-center justify-center gap-2">
+                    <span id="action-btn-text">Create Room</span> <i class="fas fa-arrow-right text-xs"></i>
                 </button>
             </div>
         </div>
@@ -282,10 +287,19 @@
         let pressTimer;
         let isScrolling = false;
 
+        // --- UPDATED ONLOAD LOGIC ---
         window.onload = () => {
             const params = new URLSearchParams(window.location.search);
             const roomParam = params.get('room');
-            if (roomParam) currentRoom = roomParam;
+            
+            // IF ROOM EXISTS IN URL, UPDATE UI TO 'JOIN' MODE
+            if (roomParam) {
+                currentRoom = roomParam;
+                document.getElementById('action-btn-text').innerText = "Join Room";
+                document.getElementById('action-btn').classList.remove('bg-blue-600', 'hover:bg-blue-500');
+                document.getElementById('action-btn').classList.add('bg-purple-600', 'hover:bg-purple-500'); // Change color for visual queue
+                document.getElementById('landing-subtitle').innerText = `REQ: JOINING CHANNEL #${roomParam}`;
+            }
         };
 
         function createChat() {
@@ -293,6 +307,7 @@
             if (!username) return alert("Identity required.");
             currentUser = username;
             
+            // If currentRoom is empty, it means we are CREATING (no param in URL)
             if (!currentRoom) {
                 currentRoom = Math.random().toString(36).substring(2, 8).toUpperCase();
                 const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?room=${currentRoom}`;
@@ -308,6 +323,9 @@
             const sysPayload = { type: 'system', text: `${currentUser} joined the chat` };
             socket.emit('message', { msg: JSON.stringify(sysPayload) });
 
+            // Only open share modal if we just CREATED the room, not if we joined one
+            // We can check if the room param was originally there by checking current URL vs initial state
+            // Or simpler: just open it anyway so they can invite others
             openShareModal();
         }
 
