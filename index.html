@@ -2,310 +2,436 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChatWithCNR</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NeonVerse - Secure Chat</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
     
-    <style>
-        /* Modern scrollbar */
-        ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        
-        .fade-in { animation: fadeIn 0.3s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-        
-        /* Reaction Pulse */
-        .reaction-anim { animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        @keyframes pop { 0% { transform: scale(0); } 100% { transform: scale(1); } }
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        neon: {
+                            purple: '#8b5cf6',
+                            blue: '#3b82f6',
+                            dark: '#050505'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                        mono: ['Rajdhani', 'monospace'],
+                    },
+                    animation: {
+                        'pop-in': 'popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+                    },
+                    keyframes: {
+                        popIn: {
+                            '0%': { opacity: '0', transform: 'scale(0.8)' },
+                            '100%': { opacity: '1', transform: 'scale(1)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
 
-        /* Recording indicator */
-        .recording-active { animation: pulse-ring 2s infinite; }
-        @keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+    <style>
+        body { background-color: #000; color: #e2e8f0; overflow: hidden; -webkit-tap-highlight-color: transparent; }
+        
+        /* 1. BLACK & PURPLE THEME */
+        .cyber-bg {
+            background: linear-gradient(180deg, #000000 0%, #0f0720 100%);
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -2;
+        }
+
+        #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; opacity: 0.5; pointer-events: none;}
+
+        /* Glassmorphism */
+        .glass-panel {
+            background: rgba(10, 10, 12, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(139, 92, 246, 0.15);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+        
+        .glass-input {
+            background: rgba(20, 20, 30, 0.6);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            color: #a78bfa;
+            font-family: 'Outfit', sans-serif;
+        }
+        .glass-input:focus { border-color: #8b5cf6; outline: none; box-shadow: 0 0 15px rgba(139, 92, 246, 0.15); }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #4c1d95; border-radius: 2px; }
+
+        /* Message Bubbles */
+        .bubble-me { 
+            background: linear-gradient(135deg, #4c1d95 0%, #2563eb 100%);
+            color: white; 
+            border-radius: 18px 18px 4px 18px; 
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.2);
+        }
+        .bubble-other { 
+            background: #1e1e24; 
+            color: #e2e8f0; 
+            border-radius: 18px 18px 18px 4px; 
+            border: 1px solid #2d2d35;
+        }
+
+        /* --- FIXED REACTION MENU CSS --- */
+        .reaction-menu {
+            position: absolute;
+            background: #0f0f12;
+            border: 1px solid #3b82f6;
+            border-radius: 50px;
+            padding: 6px 12px;
+            display: none; /* Hidden by default */
+            gap: 12px;
+            top: -50px; /* Moved slightly higher */
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+            z-index: 100; /* High Z-Index to sit on top */
+            white-space: nowrap;
+        }
+        .reaction-menu.active { display: flex; animation: popIn 0.2s ease-out; }
+
+        .no-select { user-select: none; -webkit-user-select: none; }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800 font-sans h-screen flex flex-col overflow-hidden selection:bg-teal-100">
+<body class="h-screen flex flex-col font-sans">
 
-    <div id="landing-page" class="flex-1 flex flex-col items-center justify-center p-6 fade-in">
-        <div class="max-w-md w-full bg-white rounded-xl shadow-2xl p-8 border border-gray-100">
-            <div class="text-center mb-8">
-                <h1 class="text-3xl font-bold text-teal-700 tracking-tight">ChatWithCNR</h1>
-                <p class="text-gray-400 text-sm mt-1">Real-time. Encrypted in Transit. Ephemeral.</p>
+    <div class="cyber-bg"></div>
+    <div id="canvas-container"></div>
+
+    <div id="share-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-pop-in">
+        <div class="glass-panel p-6 rounded-2xl border border-purple-500/30 max-w-sm w-full relative">
+            <h3 class="text-xl font-bold text-white mb-1">Invite Agent</h3>
+            <p class="text-gray-400 text-xs mb-4">Share this frequency key to establish connection.</p>
+            
+            <div class="glass-input rounded-lg p-3 flex items-center justify-between mb-4 bg-black/50">
+                <span class="text-xs text-purple-400 font-mono truncate w-48" id="share-link-text">...</span>
+                <button onclick="copyFullLink(true)" class="text-white hover:text-purple-400 font-bold text-xs uppercase tracking-wider transition">COPY</button>
             </div>
 
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Username</label>
-                    <input type="text" id="username-input" placeholder="Enter your display name" class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition bg-gray-50 focus:bg-white">
-                </div>
-
-                <button onclick="createChat()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-3 px-4 rounded-lg transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2">
-                    <i class="fas fa-plus-circle"></i> Create Temporary Chatroom
-                </button>
-            </div>
-
-            <div class="mt-8 pt-6 border-t border-gray-100 text-xs text-gray-500 space-y-2">
-                <p class="flex items-center gap-2"><i class="fas fa-server text-teal-500"></i> Local Memory: Chatroom is deleted when server restarts or everyone leaves.</p>
-                <p class="flex items-center gap-2"><i class="fas fa-lock text-teal-500"></i> Links shared securely via HTTPS.</p>
-            </div>
+            <button onclick="closeShareModal()" class="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-bold py-3 rounded-xl transition shadow-lg shadow-purple-900/20">
+                Enter Channel
+            </button>
         </div>
-        <div class="mt-6 text-gray-400 text-xs font-medium">Created by cnr krishna khanal</div>
     </div>
 
-    <div id="chat-page" class="hidden flex-col h-full bg-white">
-        <header class="bg-white border-b px-6 py-3 flex justify-between items-center shadow-sm z-20">
-            <div class="flex flex-col">
-                <h2 class="text-lg font-bold text-teal-800">ChatWithCNR</h2>
-                <div class="flex items-center gap-2 text-xs bg-gray-100 px-2 py-1 rounded-md cursor-pointer hover:bg-gray-200 transition" onclick="copyFullLink()">
-                    <span class="text-gray-500 font-medium">Link:</span>
-                    <span id="share-link-text" class="text-teal-600 truncate max-w-[200px] md:max-w-[400px]">...</span>
-                    <i class="fas fa-copy text-gray-400"></i>
+    <div id="landing-page" class="flex-1 flex flex-col items-center justify-center p-4 z-10 animate-pop-in">
+        <div class="glass-panel rounded-3xl p-8 md:p-12 w-full max-w-md text-center relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 via-blue-500 to-purple-500"></div>
+            
+            <div class="mb-6 flex justify-center relative">
+                <div class="absolute inset-0 bg-blue-500 blur-3xl opacity-20 rounded-full"></div>
+                <i class="fas fa-ghost text-5xl text-purple-500 z-10"></i>
+            </div>
+
+            <h1 class="text-4xl font-bold text-white mb-2">ChatWith<span class="text-blue-500">CNR</span></h1>
+            <p class="text-slate-500 text-sm mb-8 font-mono">SECURE MESSAGING PROTOCOL</p>
+
+            <div class="space-y-4 text-left">
+                <div>
+                    <input type="text" id="username-input" placeholder="Choose Identity..." class="glass-input w-full px-5 py-4 rounded-xl text-lg placeholder-slate-600">
+                </div>
+                
+                <button onclick="createChat()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-900/30 transition flex items-center justify-center gap-2">
+                    <span>Create Room</span> <i class="fas fa-arrow-right text-xs"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="chat-page" class="hidden flex-col h-full z-10">
+        <header class="glass-panel border-none px-5 py-4 flex justify-between items-center bg-black/60 rounded-b-2xl mx-2 mt-2">
+            <div class="flex items-center gap-3">
+                <div class="relative">
+                    <div class="w-2.5 h-2.5 bg-purple-500 rounded-full box-shadow shadow-[0_0_10px_#8b5cf6]"></div>
+                </div>
+                <div>
+                    <h2 class="text-md font-bold text-white tracking-wide">ROOM <span class="text-purple-500 font-mono" id="room-display">#000</span></h2>
+                    <div onclick="openShareModal()" class="text-[10px] text-slate-500 cursor-pointer hover:text-blue-400 transition font-mono flex items-center gap-1">
+                        <i class="fas fa-user-plus"></i> <span>ADD USER</span>
+                    </div>
                 </div>
             </div>
-            <div class="flex items-center gap-4">
-                <div id="active-users" class="hidden md:flex -space-x-2">
-                    </div>
-                <button onclick="leaveChat()" class="text-gray-400 hover:text-red-500 transition px-2">
-                    <i class="fas fa-power-off"></i>
-                </button>
-            </div>
+            <button onclick="leaveChat()" class="w-9 h-9 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition flex items-center justify-center">
+                <i class="fas fa-times"></i>
+            </button>
         </header>
 
-        <div id="messages-container" class="flex-1 overflow-y-auto p-4 space-y-6 bg-slate-50">
-            <div class="text-center text-xs text-gray-400 my-4">
-                <span class="bg-gray-200 px-3 py-1 rounded-full">Encrypted in transit & Ephemeral</span>
+        <div id="messages-container" class="flex-1 overflow-y-auto p-4 space-y-4 pb-20 scroll-smooth">
+            <div class="text-center py-6">
+                <span class="px-3 py-1 rounded-full bg-purple-900/20 border border-purple-500/20 text-[10px] text-purple-400 font-mono">
+                    ENCRYPTED CONNECTION ESTABLISHED
+                </span>
             </div>
-            </div>
-
-        <div id="reply-preview" class="hidden bg-gray-50 border-t border-teal-100 px-4 py-2 flex justify-between items-center">
-            <div class="flex items-center gap-2 text-sm text-gray-600 truncate">
-                <i class="fas fa-reply text-teal-500"></i>
-                <span class="font-bold text-teal-700" id="reply-to-user">User</span>
-                <span class="text-gray-400 truncate max-w-xs" id="reply-to-text">...</span>
-            </div>
-            <button onclick="cancelReply()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
         </div>
 
-        <footer class="bg-white p-4 border-t relative">
-            <input type="file" id="image-input" accept="image/*" class="hidden" onchange="handleImageUpload()">
+        <div id="reply-preview" class="hidden glass-panel mx-2 mb-2 rounded-xl p-3 flex justify-between items-center bg-black/80 border border-purple-500/30">
+            <div class="flex items-center gap-3 overflow-hidden">
+                <div class="w-1 h-8 bg-purple-500 rounded-full"></div>
+                <div class="flex flex-col text-sm">
+                    <span class="text-purple-400 font-bold text-xs" id="reply-to-user">User</span>
+                    <span class="text-slate-400 truncate max-w-[200px] text-xs" id="reply-to-text">Message...</span>
+                </div>
+            </div>
+            <button onclick="cancelReply()" class="text-slate-500 hover:text-white px-2"><i class="fas fa-times"></i></button>
+        </div>
 
-            <div class="flex items-end gap-2 bg-gray-100 p-2 rounded-2xl border border-transparent focus-within:border-teal-300 focus-within:bg-white transition-all">
-                <button onclick="document.getElementById('image-input').click()" class="p-2 text-gray-400 hover:text-teal-600 transition rounded-full hover:bg-gray-100">
-                    <i class="fas fa-image text-lg"></i>
-                </button>
+        <footer class="p-3 bg-transparent">
+            <div class="glass-panel rounded-2xl p-2 flex items-end gap-2 relative bg-black/80">
+                <input type="file" id="image-input" accept="image/*" class="hidden" onchange="handleImageUpload()">
                 
-                <button id="record-btn" onmousedown="startRecording()" onmouseup="stopRecording()" ontouchstart="startRecording()" ontouchend="stopRecording()" class="p-2 text-gray-400 hover:text-red-500 transition rounded-full hover:bg-gray-100">
-                    <i class="fas fa-microphone text-lg"></i>
+                <button onclick="document.getElementById('image-input').click()" class="w-10 h-10 text-purple-400 hover:text-white transition rounded-full hover:bg-white/10 flex items-center justify-center">
+                    <i class="fas fa-image"></i>
                 </button>
 
-                <textarea id="message-input" rows="1" class="flex-1 bg-transparent focus:outline-none py-2 px-1 text-gray-700 resize-none max-h-32" placeholder="Type a message..." oninput="autoResize(this)" onkeydown="handleEnter(event)"></textarea>
+                <button id="record-btn" onmousedown="startRecording()" onmouseup="stopRecording()" ontouchstart="startRecording()" ontouchend="stopRecording()" class="w-10 h-10 text-blue-400 hover:text-red-500 transition rounded-full hover:bg-white/10 flex items-center justify-center">
+                    <i class="fas fa-microphone"></i>
+                </button>
 
-                <button onclick="sendTextMessage()" class="bg-teal-600 hover:bg-teal-700 text-white rounded-xl p-3 w-10 h-10 flex items-center justify-center shadow-sm transition transform active:scale-95">
-                    <i class="fas fa-paper-plane text-sm"></i>
+                <div class="flex-1 relative py-1">
+                    <textarea id="message-input" rows="1" class="w-full bg-transparent text-white px-2 py-1 focus:outline-none resize-none max-h-32 placeholder-slate-600 font-sans text-sm" placeholder="Type a message..." oninput="autoResize(this)" onkeydown="handleEnter(event)"></textarea>
+                </div>
+
+                <button onclick="sendTextMessage()" class="bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl w-10 h-10 flex items-center justify-center shadow-lg hover:scale-105 transition">
+                    <i class="fas fa-paper-plane text-xs"></i>
                 </button>
             </div>
         </footer>
     </div>
 
+    <div id="overlay" class="hidden fixed inset-0 z-40 bg-transparent" onclick="closeAllReactions()"></div>
+
     <script>
-        const socket = io('https://chatsocket-6koy.onrender.com', { transports: ['websocket'] });
-        
-        // State
+        // --- 1. OPTIMIZED THREE.JS (Purple/Blue/Black) ---
+        function initThreeJS() {
+            const container = document.getElementById('canvas-container');
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
+            
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio > 1 ? 1.5 : 1);
+            container.appendChild(renderer.domElement);
+
+            const count = 600; 
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(count * 3);
+            const colors = new Float32Array(count * 3);
+
+            for(let i = 0; i < count * 3; i+=3) {
+                positions[i] = (Math.random() - 0.5) * 25;
+                positions[i+1] = (Math.random() - 0.5) * 25;
+                positions[i+2] = (Math.random() - 0.5) * 25;
+
+                const mix = Math.random();
+                if(mix < 0.5) {
+                    colors[i] = 0.5; colors[i+1] = 0.3; colors[i+2] = 0.9;
+                } else {
+                    colors[i] = 0.2; colors[i+1] = 0.4; colors[i+2] = 1.0;
+                }
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: 0.05,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.8,
+                sizeAttenuation: true
+            });
+
+            const particles = new THREE.Points(geometry, material);
+            scene.add(particles);
+            camera.position.z = 5;
+
+            function animate() {
+                requestAnimationFrame(animate);
+                particles.rotation.y += 0.001;
+                particles.rotation.x += 0.0005;
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+        initThreeJS();
+
+        // --- 2. CHAT LOGIC ---
+        const socket = io('https://chatsocket-6koy.onrender.com', { transports: ['websocket'], reconnection: true });
         let currentUser = "";
         let currentRoom = "";
-        let replyContext = null; // { id, user, text }
-        let mediaRecorder;
-        let audioChunks = [];
-        const messageStore = {}; // Local memory of messages to handle reactions
+        let replyContext = null; 
+        const messageStore = {};
+        let pressTimer;
+        let isScrolling = false;
 
-        // --- Initialization ---
         window.onload = () => {
             const params = new URLSearchParams(window.location.search);
             const roomParam = params.get('room');
-            if (roomParam) {
-                // If URL has room, show logic to auto-join or just prep UI
-                document.getElementById('landing-page').querySelector('h1').innerText = "Join ChatWithCNR";
-                document.getElementById('landing-page').querySelector('button').innerHTML = '<i class="fas fa-sign-in-alt"></i> Join Room';
-                currentRoom = roomParam;
-            }
+            if (roomParam) currentRoom = roomParam;
         };
 
         function createChat() {
             const username = document.getElementById('username-input').value.trim();
-            if (!username) return alert("Please enter a username.");
-
+            if (!username) return alert("Identity required.");
             currentUser = username;
             
-            // Generate Room ID if not present
             if (!currentRoom) {
-                currentRoom = Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
-                // Update URL
+                currentRoom = Math.random().toString(36).substring(2, 8).toUpperCase();
                 const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?room=${currentRoom}`;
                 window.history.pushState({path: newUrl}, '', newUrl);
             }
-
-            // UI Transition
+            
+            document.getElementById('room-display').innerText = currentRoom;
             document.getElementById('landing-page').classList.add('hidden');
             document.getElementById('chat-page').classList.replace('hidden', 'flex');
-            document.getElementById('share-link-text').innerText = window.location.href;
-
-            // Connect
+            
             socket.emit('join_room', { username: currentUser, room: currentRoom });
+            
+            const sysPayload = { type: 'system', text: `${currentUser} joined the chat` };
+            socket.emit('message', { msg: JSON.stringify(sysPayload) });
+
+            openShareModal();
         }
 
-        function leaveChat() {
-            window.location.href = window.location.pathname;
+        function openShareModal() {
+            document.getElementById('share-link-text').innerText = window.location.href;
+            document.getElementById('share-modal').classList.remove('hidden');
         }
-
-        function copyFullLink() {
+        function closeShareModal() { document.getElementById('share-modal').classList.add('hidden'); }
+        function copyFullLink(fromModal) {
             navigator.clipboard.writeText(window.location.href);
-            alert("Secure Link Copied!");
+            if(fromModal) {
+                const btn = document.querySelector('#share-modal button.text-white');
+                const original = btn.innerText; btn.innerText = "COPIED"; setTimeout(()=>btn.innerText=original, 2000);
+            }
         }
-
-        // --- Protocol Wrapper (The "Secret Sauce") ---
-        // Since backend only emits 'message', 'image', 'voice', we use 'message' 
-        // as a transport for complex data (text with IDs, reactions, replies).
-
-        function generateId() {
-            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        function leaveChat() { 
+            const sysPayload = { type: 'system', text: `${currentUser} left the chat` };
+            socket.emit('message', { msg: JSON.stringify(sysPayload) });
+            setTimeout(() => window.location.href = window.location.pathname, 100);
         }
+        
+        function generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2); }
 
         function sendTextMessage() {
             const input = document.getElementById('message-input');
             const text = input.value.trim();
             if (!text) return;
-
-            const payload = {
-                type: 'text',
-                id: generateId(),
-                content: text,
-                replyTo: replyContext, // attach reply info
-                timestamp: new Date().toISOString()
-            };
-
-            // Send as stringified JSON inside the 'msg' field
+            const payload = { type: 'text', id: generateId(), content: text, replyTo: replyContext, timestamp: new Date().toISOString() };
             socket.emit('message', { msg: JSON.stringify(payload) });
-
-            input.value = "";
-            input.style.height = 'auto';
-            cancelReply();
+            input.value = ""; input.style.height = 'auto'; cancelReply();
         }
-
-        function sendReactionToMessage(msgId, emoji) {
-            // We can't update the DB, so we broadcast a "reaction event" disguised as a message
-            const payload = {
-                type: 'reaction-update',
-                targetId: msgId,
-                emoji: emoji,
-                fromUser: currentUser
-            };
-            socket.emit('message', { msg: JSON.stringify(payload) });
-        }
-
-        // --- Socket Listeners ---
 
         socket.on('message', (data) => {
-            // Server sends { user: "...", msg: "..." }
-            if (data.user === "Server") {
-                renderSystemMessage(data.msg);
-                return;
-            }
+            if(data.user === "Server" && !data.msg.startsWith('{')) return; 
 
             try {
-                // Try to parse our custom protocol
                 const payload = JSON.parse(data.msg);
-                
-                if (payload.type === 'text') {
-                    renderMessage(data.user, payload);
-                } else if (payload.type === 'reaction-update') {
-                    handleIncomingReaction(payload);
-                }
-            } catch (e) {
-                // Fallback for plain text (legacy or direct backend testing)
-                renderMessage(data.user, { type: 'text', id: generateId(), content: data.msg });
+                if (payload.type === 'system') renderSystemMessage(payload.text);
+                else if (payload.type === 'text') renderMessage(data.user, payload);
+                else if (payload.type === 'reaction-update') handleReaction(payload);
+            } catch (e) { 
+                renderMessage(data.user, { type: 'text', id: generateId(), content: data.msg }); 
             }
         });
 
-        socket.on('image', (data) => {
-            // Images don't support our custom JSON wrapper easily without base64 bloat, 
-            // so we render them simply, but generate a local ID so we can react to them loosely.
-            renderMessage(data.user, { type: 'image', id: generateId(), content: data.img });
-        });
+        socket.on('image', (data) => renderMessage(data.user, { type: 'image', id: generateId(), content: data.img }));
+        socket.on('voice', (data) => renderMessage(data.user, { type: 'voice', id: generateId(), content: data.voice }));
 
-        socket.on('voice', (data) => {
-            renderMessage(data.user, { type: 'voice', id: generateId(), content: data.voice });
-        });
-
-        // --- UI Rendering ---
+        function renderSystemMessage(text) {
+            const container = document.getElementById('messages-container');
+            const div = document.createElement('div');
+            div.className = "flex justify-center my-2 animate-pop-in";
+            div.innerHTML = `<span class="text-[10px] text-slate-500 bg-black/40 px-3 py-1 rounded-full border border-slate-800">${text}</span>`;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
 
         function renderMessage(user, data) {
             const container = document.getElementById('messages-container');
             const isMe = user === currentUser;
             const msgId = data.id || generateId();
-            
-            // Save to local store for reaction lookup
             messageStore[msgId] = { user, ...data };
 
             const wrapper = document.createElement('div');
             wrapper.id = `msg-${msgId}`;
-            wrapper.className = `flex w-full group ${isMe ? 'justify-end' : 'justify-start'} fade-in mb-4 relative`;
+            wrapper.className = `flex w-full ${isMe ? 'justify-end' : 'justify-start'} relative animate-pop-in group`;
 
-            // Avatar placeholder
-            const avatar = `<div class="w-8 h-8 rounded-full bg-gradient-to-tr from-teal-400 to-blue-500 flex items-center justify-center text-white text-xs font-bold mr-2 shadow-sm select-none">${user.substring(0,2).toUpperCase()}</div>`;
+            const avatar = `<div class="w-8 h-8 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center text-slate-300 text-xs font-bold mr-2 mt-auto">${user.substring(0,2).toUpperCase()}</div>`;
 
-            // Content Body
             let contentHtml = "";
-            if (data.type === 'text') {
-                contentHtml = `<p class="whitespace-pre-wrap">${data.content}</p>`;
-            } else if (data.type === 'image') {
-                contentHtml = `<img src="${data.content}" class="rounded-lg max-w-xs md:max-w-sm border border-white/20">`;
-            } else if (data.type === 'voice') {
-                contentHtml = `<audio controls src="${data.content}" class="h-8 w-56"></audio>`;
-            }
+            if (data.type === 'text') contentHtml = `<p class="whitespace-pre-wrap leading-relaxed text-sm">${data.content}</p>`;
+            else if (data.type === 'image') contentHtml = `<img src="${data.content}" class="rounded-lg max-w-[200px] border border-white/10">`;
+            else if (data.type === 'voice') contentHtml = `<audio controls src="${data.content}" class="h-8 w-48 opacity-80 invert"></audio>`;
 
-            // Reply Block rendering
             let replyHtml = "";
             if (data.replyTo) {
                 replyHtml = `
-                    <div class="mb-1 text-xs border-l-2 ${isMe ? 'border-teal-200' : 'border-teal-500'} pl-2 opacity-70 cursor-pointer hover:opacity-100" onclick="scrollToMessage('${data.replyTo.id}')">
-                        <span class="font-bold mr-1">${data.replyTo.user}</span>
-                        <span class="truncate block">${data.replyTo.text.substring(0, 30)}...</span>
+                    <div class="mb-2 text-[10px] bg-black/20 p-2 rounded border-l-2 border-white/50 cursor-pointer" onclick="scrollToMessage('${data.replyTo.id}')">
+                        <span class="font-bold opacity-75">${data.replyTo.user}</span>
+                        <div class="truncate opacity-60">${data.replyTo.text.substring(0, 25)}...</div>
                     </div>
                 `;
             }
 
-            // Action Toolbar (Hidden by default, shows on hover)
-            const actions = `
-                <div class="absolute ${isMe ? '-left-14' : '-right-14'} top-0 hidden group-hover:flex gap-1 bg-white shadow-sm border rounded-full px-2 py-1 z-10">
-                    <button onclick="triggerReply('${msgId}')" class="text-gray-400 hover:text-teal-600 p-1" title="Reply"><i class="fas fa-reply"></i></button>
-                    <div class="relative group/react">
-                        <button class="text-gray-400 hover:text-yellow-500 p-1" title="React"><i class="far fa-smile"></i></button>
-                        <div class="absolute bottom-full left-0 hidden group-hover/react:flex bg-white shadow-lg rounded-lg p-1 gap-1 mb-1">
-                            ${['👍','❤️','😂','😮','🔥'].map(e => 
-                                `<button onclick="sendReactionToMessage('${msgId}', '${e}')" class="hover:scale-125 transition p-1 text-lg">${e}</button>`
-                            ).join('')}
-                        </div>
+            // --- REACTION MENU ---
+            const reactionMenu = `
+                <div id="reaction-menu-${msgId}" class="reaction-menu ${isMe ? 'right-0' : 'left-0'}">
+                    <button onclick="sendReaction('${msgId}', '')" class="hover:scale-125 transition text-lg"></button>
+                    <button onclick="sendReaction('${msgId}', '')" class="hover:scale-125 transition text-lg"></button>
+                    <button onclick="sendReaction('${msgId}', '')" class="hover:scale-125 transition text-lg"></button>
+                    <button onclick="sendReaction('${msgId}', '')" class="hover:scale-125 transition text-lg"></button>
+                    <button onclick="sendReaction('${msgId}', '')" class="hover:scale-125 transition text-lg"></button>
+                </div>
+            `;
+
+            // --- BUBBLE WITH IMPROVED EVENTS ---
+            // Added event.preventDefault() to oncontextmenu to stop native browser menus
+            const bubbleHtml = `
+                <div class="${isMe ? 'bubble-me' : 'bubble-other'} px-4 py-3 relative no-select cursor-pointer"
+                     onmousedown="handlePressStart('${msgId}')" 
+                     onmouseup="handlePressEnd()" 
+                     onmouseleave="handlePressEnd()"
+                     ontouchstart="handlePressStart('${msgId}')" 
+                     ontouchend="handlePressEnd()"
+                     ontouchmove="handleTouchMove()"
+                     oncontextmenu="event.preventDefault(); return false;">
+                    ${replyHtml}
+                    ${contentHtml}
+                    
+                    <div class="flex items-center justify-between mt-1 gap-2">
+                        <div class="text-[9px] opacity-50 font-mono">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                         <button onclick="triggerReply('${msgId}')" class="text-white/40 hover:text-white transition">
+                            <i class="fas fa-reply text-[10px]"></i>
+                        </button>
                     </div>
                 </div>
             `;
 
-            // Bubble Styling
-            const bubbleClass = isMe 
-                ? 'bg-teal-600 text-white rounded-2xl rounded-tr-none' 
-                : 'bg-white text-gray-800 border border-gray-100 shadow-sm rounded-2xl rounded-tl-none';
-
             wrapper.innerHTML = `
                 ${!isMe ? avatar : ''}
-                <div class="relative max-w-[80%] md:max-w-[60%]">
-                    <div class="${bubbleClass} px-4 py-3 relative">
-                        ${replyHtml}
-                        ${contentHtml}
-                        <div class="text-[10px] opacity-50 text-right mt-1">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
-                    </div>
-                    <div id="reactions-${msgId}" class="flex gap-1 absolute -bottom-3 ${isMe ? 'right-0' : 'left-0'}"></div>
-                    ${actions}
+                <div class="relative max-w-[80%] md:max-w-[65%]">
+                    ${reactionMenu}
+                    ${bubbleHtml}
+                    <div id="reactions-${msgId}" class="absolute -bottom-3 ${isMe ? 'right-0' : 'left-0'} flex gap-1 pointer-events-none z-10 flex-wrap"></div>
                 </div>
             `;
 
@@ -313,72 +439,84 @@
             container.scrollTop = container.scrollHeight;
         }
 
-        function renderSystemMessage(msg) {
-            const container = document.getElementById('messages-container');
-            const div = document.createElement('div');
-            div.className = "flex justify-center my-2";
-            div.innerHTML = `<span class="bg-gray-100 text-gray-500 text-xs px-3 py-1 rounded-full border border-gray-200">${msg}</span>`;
-            container.appendChild(div);
+        // --- 3. FIXED LONG PRESS & REACTION LOGIC ---
+        
+        function handlePressStart(msgId) {
+            isScrolling = false; // Reset scroll flag
+            pressTimer = setTimeout(() => {
+                if (!isScrolling) {
+                    showReactionMenu(msgId);
+                    // Haptic feedback
+                    if (navigator.vibrate) navigator.vibrate(50);
+                }
+            }, 600); // 600ms hold time
         }
 
-        function handleIncomingReaction(payload) {
-            // payload: { targetId, emoji, fromUser }
-            const reactionContainer = document.getElementById(`reactions-${payload.targetId}`);
-            if (reactionContainer) {
-                const badge = document.createElement('div');
-                badge.className = "bg-white border text-xs rounded-full px-1 shadow-sm reaction-anim cursor-default";
-                badge.title = `Reacted by ${payload.fromUser}`;
-                badge.innerText = payload.emoji;
-                reactionContainer.appendChild(badge);
+        function handlePressEnd() {
+            clearTimeout(pressTimer);
+        }
+
+        // Cancel press if the user moves their finger (scrolls)
+        function handleTouchMove() {
+            isScrolling = true;
+            clearTimeout(pressTimer);
+        }
+
+        function showReactionMenu(msgId) {
+            closeAllReactions();
+            const menu = document.getElementById(`reaction-menu-${msgId}`);
+            if(menu) {
+                menu.classList.add('active');
+                document.getElementById('overlay').classList.remove('hidden');
             }
         }
 
-        // --- Interaction Logic ---
+        function closeAllReactions() {
+            document.querySelectorAll('.reaction-menu').forEach(el => el.classList.remove('active'));
+            document.getElementById('overlay').classList.add('hidden');
+        }
 
+        function sendReaction(msgId, emoji) {
+            const payload = { type: 'reaction-update', targetId: msgId, emoji: emoji, fromUser: currentUser };
+            socket.emit('message', { msg: JSON.stringify(payload) });
+            closeAllReactions();
+        }
+
+        function handleReaction(payload) {
+            const container = document.getElementById(`reactions-${payload.targetId}`);
+            if (container) {
+                // Visual check: only add if logic permits (here we just append)
+                const badge = document.createElement('div');
+                badge.className = "bg-slate-800 text-[10px] px-1.5 py-0.5 rounded-full border border-slate-600 shadow-sm animate-pop-in z-20 mb-1";
+                badge.innerText = payload.emoji;
+                container.appendChild(badge);
+            }
+        }
+
+        // --- REPLY & UTILS ---
         function triggerReply(msgId) {
             const original = messageStore[msgId];
             if (!original) return;
-
-            replyContext = {
-                id: msgId,
-                user: original.user,
-                text: original.type === 'text' ? original.content : '[Media]'
-            };
-
+            replyContext = { id: msgId, user: original.user, text: original.type === 'text' ? original.content : '[MEDIA]' };
             document.getElementById('reply-preview').classList.replace('hidden', 'flex');
             document.getElementById('reply-to-user').innerText = replyContext.user;
             document.getElementById('reply-to-text').innerText = replyContext.text;
             document.getElementById('message-input').focus();
         }
-
-        function cancelReply() {
-            replyContext = null;
-            document.getElementById('reply-preview').classList.replace('flex', 'hidden');
-        }
-
+        function cancelReply() { replyContext = null; document.getElementById('reply-preview').classList.replace('flex', 'hidden'); }
         function scrollToMessage(id) {
             const el = document.getElementById(`msg-${id}`);
-            if (el) {
-                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                el.classList.add('bg-teal-50'); // Highlight effect
-                setTimeout(() => el.classList.remove('bg-teal-50'), 1000);
+            if(el) { 
+                el.scrollIntoView({behavior:'smooth', block:'center'}); 
+                const bubble = el.querySelector('.bubble-me, .bubble-other');
+                bubble.style.filter = "brightness(1.5)";
+                setTimeout(()=> bubble.style.filter = "brightness(1)", 1000);
             }
         }
+        function autoResize(textarea) { textarea.style.height = 'auto'; textarea.style.height = textarea.scrollHeight + 'px'; }
+        function handleEnter(e) { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendTextMessage(); } }
 
-        function autoResize(textarea) {
-            textarea.style.height = 'auto';
-            textarea.style.height = textarea.scrollHeight + 'px';
-        }
-
-        function handleEnter(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendTextMessage();
-            }
-        }
-
-        // --- Media Handling (Images/Voice) ---
-        
+        // --- MEDIA ---
         function handleImageUpload() {
             const file = document.getElementById('image-input').files[0];
             if (file) {
@@ -387,27 +525,22 @@
                 reader.readAsDataURL(file);
             }
         }
-
+        
+        let mediaRecorder; let audioChunks = [];
         async function startRecording() {
             const btn = document.getElementById('record-btn');
-            btn.classList.add('text-red-600', 'recording-active');
-            
+            btn.classList.add('text-red-500', 'animate-pulse');
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 mediaRecorder = new MediaRecorder(stream);
                 audioChunks = [];
                 mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
                 mediaRecorder.start();
-            } catch (err) {
-                alert("Microphone access denied.");
-                btn.classList.remove('text-red-600', 'recording-active');
-            }
+            } catch (err) { alert("Mic permission denied."); btn.classList.remove('text-red-500', 'animate-pulse'); }
         }
-
         function stopRecording() {
             const btn = document.getElementById('record-btn');
-            btn.classList.remove('text-red-600', 'recording-active');
-            
+            btn.classList.remove('text-red-500', 'animate-pulse');
             if (mediaRecorder && mediaRecorder.state !== 'inactive') {
                 mediaRecorder.stop();
                 mediaRecorder.onstop = () => {
