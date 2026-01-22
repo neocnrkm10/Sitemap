@@ -40,9 +40,16 @@
     </script>
 
     <style>
-        body { background-color: #000; color: #e2e8f0; overflow: hidden; -webkit-tap-highlight-color: transparent; }
+        /* CRITICAL MOBILE FIXES */
+        html, body { 
+            height: 100%; 
+            height: 100dvh; /* Dynamic viewport height for mobile browsers */
+            overflow: hidden; 
+            background-color: #000; 
+            color: #e2e8f0; 
+            -webkit-tap-highlight-color: transparent; 
+        }
         
-        /* 1. BLACK & PURPLE THEME */
         .cyber-bg {
             background: linear-gradient(180deg, #000000 0%, #0f0720 100%);
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -2;
@@ -50,7 +57,6 @@
 
         #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; opacity: 0.5; pointer-events: none;}
 
-        /* Glassmorphism */
         .glass-panel {
             background: rgba(10, 10, 12, 0.85);
             backdrop-filter: blur(16px);
@@ -67,12 +73,10 @@
         }
         .glass-input:focus { border-color: #8b5cf6; outline: none; box-shadow: 0 0 15px rgba(139, 92, 246, 0.15); }
 
-        /* Scrollbar */
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #4c1d95; border-radius: 2px; }
 
-        /* Message Bubbles */
         .bubble-me { 
             background: linear-gradient(135deg, #4c1d95 0%, #2563eb 100%);
             color: white; 
@@ -86,18 +90,17 @@
             border: 1px solid #2d2d35;
         }
 
-        /* --- FIXED REACTION MENU CSS --- */
         .reaction-menu {
             position: absolute;
             background: #0f0f12;
             border: 1px solid #3b82f6;
             border-radius: 50px;
             padding: 6px 12px;
-            display: none; /* Hidden by default */
+            display: none; 
             gap: 12px;
-            top: -50px; /* Moved slightly higher */
+            top: -50px; 
             box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
-            z-index: 100; /* High Z-Index to sit on top */
+            z-index: 100; 
             white-space: nowrap;
         }
         .reaction-menu.active { display: flex; animation: popIn 0.2s ease-out; }
@@ -105,7 +108,7 @@
         .no-select { user-select: none; -webkit-user-select: none; }
     </style>
 </head>
-<body class="h-screen flex flex-col font-sans">
+<body class="flex flex-col font-sans">
 
     <div class="cyber-bg"></div>
     <div id="canvas-container"></div>
@@ -126,8 +129,8 @@
         </div>
     </div>
 
-    <div id="landing-page" class="flex-1 flex flex-col items-center justify-center p-4 z-10 animate-pop-in">
-        <div class="glass-panel rounded-3xl p-8 md:p-12 w-full max-w-md text-center relative overflow-hidden">
+    <div id="landing-page" class="flex-1 flex flex-col items-center justify-center p-4 z-10 animate-pop-in overflow-y-auto">
+        <div class="glass-panel rounded-3xl p-8 md:p-12 w-full max-w-md text-center relative overflow-hidden my-auto">
             <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 via-blue-500 to-purple-500"></div>
             
             <div class="mb-6 flex justify-center relative">
@@ -145,7 +148,7 @@
 
             <div class="space-y-4 text-left">
                 <div>
-                    <input type="text" id="username-input" placeholder="Choose Identity..." class="glass-input w-full px-5 py-4 rounded-xl text-lg placeholder-slate-600">
+                    <input type="text" id="username-input" placeholder="Choose Identity..." class="glass-input w-full px-5 py-4 rounded-xl text-lg placeholder-slate-600 pointer-events-auto">
                 </div>
                 
                 <button onclick="createChat()" id="action-btn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-900/30 transition flex items-center justify-center gap-2">
@@ -155,8 +158,8 @@
         </div>
     </div>
 
-    <div id="chat-page" class="hidden flex-col h-full z-10">
-        <header class="glass-panel border-none px-5 py-4 flex justify-between items-center bg-black/60 rounded-b-2xl mx-2 mt-2">
+    <div id="chat-page" class="hidden flex-col h-full w-full z-10 relative">
+        <header class="glass-panel border-none px-5 py-4 flex justify-between items-center bg-black/60 rounded-b-2xl mx-2 mt-2 shrink-0">
             <div class="flex items-center gap-3">
                 <div class="relative">
                     <div class="w-2.5 h-2.5 bg-purple-500 rounded-full box-shadow shadow-[0_0_10px_#8b5cf6]"></div>
@@ -173,7 +176,7 @@
             </button>
         </header>
 
-        <div id="messages-container" class="flex-1 overflow-y-auto p-4 space-y-4 pb-20 scroll-smooth">
+        <div id="messages-container" class="flex-1 overflow-y-auto p-4 space-y-4 w-full scroll-smooth">
             <div class="text-center py-6">
                 <span class="px-3 py-1 rounded-full bg-purple-900/20 border border-purple-500/20 text-[10px] text-purple-400 font-mono">
                     ENCRYPTED CONNECTION ESTABLISHED
@@ -181,7 +184,7 @@
             </div>
         </div>
 
-        <div id="reply-preview" class="hidden glass-panel mx-2 mb-2 rounded-xl p-3 flex justify-between items-center bg-black/80 border border-purple-500/30">
+        <div id="reply-preview" class="hidden glass-panel mx-2 mb-2 rounded-xl p-3 flex justify-between items-center bg-black/80 border border-purple-500/30 shrink-0">
             <div class="flex items-center gap-3 overflow-hidden">
                 <div class="w-1 h-8 bg-purple-500 rounded-full"></div>
                 <div class="flex flex-col text-sm">
@@ -192,23 +195,23 @@
             <button onclick="cancelReply()" class="text-slate-500 hover:text-white px-2"><i class="fas fa-times"></i></button>
         </div>
 
-        <footer class="p-3 bg-transparent">
+        <footer class="p-3 bg-transparent w-full z-50 shrink-0">
             <div class="glass-panel rounded-2xl p-2 flex items-end gap-2 relative bg-black/80">
                 <input type="file" id="image-input" accept="image/*" class="hidden" onchange="handleImageUpload()">
                 
-                <button onclick="document.getElementById('image-input').click()" class="w-10 h-10 text-purple-400 hover:text-white transition rounded-full hover:bg-white/10 flex items-center justify-center">
+                <button onclick="document.getElementById('image-input').click()" class="w-10 h-10 text-purple-400 hover:text-white transition rounded-full hover:bg-white/10 flex items-center justify-center shrink-0">
                     <i class="fas fa-image"></i>
                 </button>
 
-                <button id="record-btn" onmousedown="startRecording()" onmouseup="stopRecording()" ontouchstart="startRecording()" ontouchend="stopRecording()" class="w-10 h-10 text-blue-400 hover:text-red-500 transition rounded-full hover:bg-white/10 flex items-center justify-center">
+                <button id="record-btn" onmousedown="startRecording()" onmouseup="stopRecording()" ontouchstart="startRecording()" ontouchend="stopRecording()" class="w-10 h-10 text-blue-400 hover:text-red-500 transition rounded-full hover:bg-white/10 flex items-center justify-center shrink-0">
                     <i class="fas fa-microphone"></i>
                 </button>
 
-                <div class="flex-1 relative py-1">
-                    <textarea id="message-input" rows="1" class="w-full bg-transparent text-white px-2 py-1 focus:outline-none resize-none max-h-32 placeholder-slate-600 font-sans text-sm" placeholder="Type a message..." oninput="autoResize(this)" onkeydown="handleEnter(event)"></textarea>
+                <div class="flex-1 relative py-2">
+                    <textarea id="message-input" rows="1" class="w-full bg-transparent text-white text-base px-2 focus:outline-none resize-none max-h-32 placeholder-slate-600 font-sans pointer-events-auto" placeholder="Type a message..." oninput="autoResize(this)" onkeydown="handleEnter(event)" style="touch-action: manipulation;"></textarea>
                 </div>
 
-                <button onclick="sendTextMessage()" class="bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl w-10 h-10 flex items-center justify-center shadow-lg hover:scale-105 transition">
+                <button onclick="sendTextMessage()" class="bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl w-10 h-10 flex items-center justify-center shadow-lg hover:scale-105 transition shrink-0">
                     <i class="fas fa-paper-plane text-xs"></i>
                 </button>
             </div>
@@ -218,7 +221,7 @@
     <div id="overlay" class="hidden fixed inset-0 z-40 bg-transparent" onclick="closeAllReactions()"></div>
 
     <script>
-        // --- 1. OPTIMIZED THREE.JS (Purple/Blue/Black) ---
+        // --- 1. OPTIMIZED THREE.JS ---
         function initThreeJS() {
             const container = document.getElementById('canvas-container');
             const scene = new THREE.Scene();
@@ -270,6 +273,7 @@
             }
             animate();
 
+            // Handle Resize
             window.addEventListener('resize', () => {
                 camera.aspect = window.innerWidth / window.innerHeight;
                 camera.updateProjectionMatrix();
@@ -287,17 +291,14 @@
         let pressTimer;
         let isScrolling = false;
 
-        // --- UPDATED ONLOAD LOGIC ---
         window.onload = () => {
             const params = new URLSearchParams(window.location.search);
             const roomParam = params.get('room');
-            
-            // IF ROOM EXISTS IN URL, UPDATE UI TO 'JOIN' MODE
             if (roomParam) {
                 currentRoom = roomParam;
                 document.getElementById('action-btn-text').innerText = "Join Room";
                 document.getElementById('action-btn').classList.remove('bg-blue-600', 'hover:bg-blue-500');
-                document.getElementById('action-btn').classList.add('bg-purple-600', 'hover:bg-purple-500'); // Change color for visual queue
+                document.getElementById('action-btn').classList.add('bg-purple-600', 'hover:bg-purple-500');
                 document.getElementById('landing-subtitle').innerText = `REQ: JOINING CHANNEL #${roomParam}`;
             }
         };
@@ -307,7 +308,6 @@
             if (!username) return alert("Identity required.");
             currentUser = username;
             
-            // If currentRoom is empty, it means we are CREATING (no param in URL)
             if (!currentRoom) {
                 currentRoom = Math.random().toString(36).substring(2, 8).toUpperCase();
                 const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?room=${currentRoom}`;
@@ -319,14 +319,12 @@
             document.getElementById('chat-page').classList.replace('hidden', 'flex');
             
             socket.emit('join_room', { username: currentUser, room: currentRoom });
-            
             const sysPayload = { type: 'system', text: `${currentUser} joined the chat` };
             socket.emit('message', { msg: JSON.stringify(sysPayload) });
 
-            // Only open share modal if we just CREATED the room, not if we joined one
-            // We can check if the room param was originally there by checking current URL vs initial state
-            // Or simpler: just open it anyway so they can invite others
             openShareModal();
+            // Focus on input immediately
+            setTimeout(() => document.getElementById('message-input').focus(), 500);
         }
 
         function openShareModal() {
@@ -356,11 +354,11 @@
             const payload = { type: 'text', id: generateId(), content: text, replyTo: replyContext, timestamp: new Date().toISOString() };
             socket.emit('message', { msg: JSON.stringify(payload) });
             input.value = ""; input.style.height = 'auto'; cancelReply();
+            input.focus();
         }
 
         socket.on('message', (data) => {
             if(data.user === "Server" && !data.msg.startsWith('{')) return; 
-
             try {
                 const payload = JSON.parse(data.msg);
                 if (payload.type === 'system') renderSystemMessage(payload.text);
@@ -410,7 +408,6 @@
                 `;
             }
 
-            // --- REACTION MENU ---
             const reactionMenu = `
                 <div id="reaction-menu-${msgId}" class="reaction-menu ${isMe ? 'right-0' : 'left-0'}">
                     <button onclick="sendReaction('${msgId}', '')" class="hover:scale-125 transition text-lg"></button>
@@ -421,8 +418,6 @@
                 </div>
             `;
 
-            // --- BUBBLE WITH IMPROVED EVENTS ---
-            // Added event.preventDefault() to oncontextmenu to stop native browser menus
             const bubbleHtml = `
                 <div class="${isMe ? 'bubble-me' : 'bubble-other'} px-4 py-3 relative no-select cursor-pointer"
                      onmousedown="handlePressStart('${msgId}')" 
@@ -434,7 +429,6 @@
                      oncontextmenu="event.preventDefault(); return false;">
                     ${replyHtml}
                     ${contentHtml}
-                    
                     <div class="flex items-center justify-between mt-1 gap-2">
                         <div class="text-[9px] opacity-50 font-mono">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
                          <button onclick="triggerReply('${msgId}')" class="text-white/40 hover:text-white transition">
@@ -457,28 +451,19 @@
             container.scrollTop = container.scrollHeight;
         }
 
-        // --- 3. FIXED LONG PRESS & REACTION LOGIC ---
-        
+        // --- 3. REACTION LOGIC ---
         function handlePressStart(msgId) {
-            isScrolling = false; // Reset scroll flag
+            isScrolling = false; 
             pressTimer = setTimeout(() => {
                 if (!isScrolling) {
                     showReactionMenu(msgId);
-                    // Haptic feedback
                     if (navigator.vibrate) navigator.vibrate(50);
                 }
-            }, 600); // 600ms hold time
+            }, 600); 
         }
 
-        function handlePressEnd() {
-            clearTimeout(pressTimer);
-        }
-
-        // Cancel press if the user moves their finger (scrolls)
-        function handleTouchMove() {
-            isScrolling = true;
-            clearTimeout(pressTimer);
-        }
+        function handlePressEnd() { clearTimeout(pressTimer); }
+        function handleTouchMove() { isScrolling = true; clearTimeout(pressTimer); }
 
         function showReactionMenu(msgId) {
             closeAllReactions();
@@ -503,7 +488,6 @@
         function handleReaction(payload) {
             const container = document.getElementById(`reactions-${payload.targetId}`);
             if (container) {
-                // Visual check: only add if logic permits (here we just append)
                 const badge = document.createElement('div');
                 badge.className = "bg-slate-800 text-[10px] px-1.5 py-0.5 rounded-full border border-slate-600 shadow-sm animate-pop-in z-20 mb-1";
                 badge.innerText = payload.emoji;
